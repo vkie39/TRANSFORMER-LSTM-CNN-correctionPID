@@ -45,6 +45,8 @@ y_test = y[train_size+val_size:]
 
 
 #데이터 스케일링
+#x" =(1−(−1))⋅x ′ −1=2⋅x ′  −1
+
 def MinMaxScale(array, min_val, max_val):
     return 2*(array - min_val) / (max_val - min_val) - 1
 
@@ -214,3 +216,4 @@ test_loss = evaluate_model(model, x_test_final, y_test_final)
 plt.plot(train_hist, label="Training loss")
 plt.plot(val_hist, label="Val loss")
 plt.legend()
+plt.show()
