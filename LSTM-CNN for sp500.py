@@ -1,143 +1,131 @@
 import pandas as pd
 import numpy as np
-import torch
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+import tensorflow as tf
+from tensorflow.keras import layers
 import matplotlib.pyplot as plt
-import time  # 시간 측정을 위한 라이브러리
+import time  # 시간 측정 모듈
 
-from torch import nn
+# CSV 파일 로드
+data = pd.read_csv("sample_data_sp500.csv")
+data = data.replace(',', '', regex=True).astype(float)  # 쉼표 제거 및 숫자 변환
 
-confirmed = pd.read_csv('sample_data_sp500.csv')
-confirmed = confirmed.replace(',', '', regex=True).astype(float)  # 쉼표 제거 및 숫자 변환
+# 입력과 출력 변수 분리
+features = ['Open', 'High', 'Low']
+target = 'Close'
 
-def create_sequences(data, seq_length, input_columns, target_columns):
-    xs = []
-    ys = []
-    for i in range(len(data) - seq_length):
-        x = data.iloc[i:(i + seq_length)][input_columns].values
-        y = data.iloc[i + seq_length][target_columns].values
-        xs.append(x)
-        ys.append(y)
-    return np.array(xs), np.array(ys)
+X = data[features].values
+y = data[target].values
 
-input_columns = ['Open', 'High', 'Low']
-target_columns = ['Close']
-seq_length = 5
+# 입력 데이터와 타겟 데이터 스케일링
+input_scaler = MinMaxScaler(feature_range=(-1, 1))
+target_scaler = MinMaxScaler(feature_range=(-1, 1))
 
-x, y = create_sequences(confirmed, seq_length, input_columns, target_columns)
+X = input_scaler.fit_transform(X)  # 입력 데이터 정규화
+y = target_scaler.fit_transform(y.reshape(-1, 1))  # 타겟 데이터 정규화
 
-train_size = int(len(x) * 0.8)
-x_train, x_test = x[:train_size], x[train_size:]
-y_train, y_test = y[:train_size], y[train_size:]
+seq_length = 5  # 시퀀스 길이
 
-def MinMaxScale(array, min_val, max_val):
-    return 2 * (array - min_val) / (max_val - min_val) - 1
+# Sliding Window를 이용한 시퀀스 데이터 생성
+def create_sequences_sliding_window(X, y, seq_length):
+    X_seq, y_seq = [], []
+    for i in range(len(X) - seq_length + 1):
+        X_seq.append(X[i:i + seq_length])
+        y_seq.append(y[i + seq_length - 1])
+    return np.array(X_seq), np.array(y_seq)
 
-min_val = x_train.min()
-max_val = x_train.max()
+X_seq, y_seq = create_sequences_sliding_window(X, y, seq_length)
 
-x_train = MinMaxScale(x_train, min_val, max_val)
-y_train = MinMaxScale(y_train, min_val, max_val)
-x_test = MinMaxScale(x_test, min_val, max_val)
-y_test = MinMaxScale(y_test, min_val, max_val)
+# 슬라이딩 윈도우 결과 확인
+print(f"Generated X_seq shape: {X_seq.shape}")
+print(f"Generated y_seq shape: {y_seq.shape}")
 
-def make_Tensor(array):
-    return torch.from_numpy(array).float()
+# 훈련 데이터와 테스트 데이터 분리
+X_train, X_test, y_train, y_test = train_test_split(X_seq, y_seq, test_size=0.2, shuffle=False)
 
-x_train_final = make_Tensor(x_train)
-y_train_final = make_Tensor(y_train)
-x_test_final = make_Tensor(x_test)
-y_test_final = make_Tensor(y_test)
+# Transformer 블록 정의
+class TransformerBlock(layers.Layer):
+    def __init__(self, d_model, num_heads, ff_dim, dropout=0.1):
+        super(TransformerBlock, self).__init__()
+        self.att = layers.MultiHeadAttention(num_heads=num_heads, key_dim=d_model)
+        self.ffn = tf.keras.Sequential([
+            layers.Dense(ff_dim, activation="relu"),
+            layers.Dense(d_model)
+        ])
+        self.layernorm1 = layers.LayerNormalization(epsilon=1e-6)
+        self.layernorm2 = layers.LayerNormalization(epsilon=1e-6)
+        self.dropout1 = layers.Dropout(dropout)
+        self.dropout2 = layers.Dropout(dropout)
 
-class MotorPredict(nn.Module):
-    def __init__(self, n_features, n_hidden, seq_len, n_layers):
-        super(MotorPredict, self).__init__()
-        self.c1 = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=2, stride=1)
-        self.lstm = nn.LSTM(input_size=32, hidden_size=n_hidden, num_layers=n_layers, batch_first=True)
-        self.linear = nn.Linear(in_features=n_hidden, out_features=1)
+    def call(self, inputs, training):
+        attn_output = self.att(inputs, inputs)
+        attn_output = self.dropout1(attn_output, training=training)
+        out1 = self.layernorm1(inputs + attn_output)
+        ffn_output = self.ffn(out1)
+        ffn_output = self.dropout2(ffn_output, training=training)
+        return self.layernorm2(out1 + ffn_output)
 
-    def forward(self, sequences):
-        sequences = self.c1(sequences.view(len(sequences), 1, -1))
-        sequences = sequences.permute(0, 2, 1)
-        lstm_out, _ = self.lstm(sequences)
-        y_pred = self.linear(lstm_out[:, -1, :])
-        return y_pred
+# CNN + Transformer 결합 모델 정의
+class CNNSelfAttentionModel(tf.keras.Model):
+    def __init__(self, seq_length, d_model, num_heads, ff_dim, cnn_filters):
+        super(CNNSelfAttentionModel, self).__init__()
+        self.conv1d = layers.Conv1D(filters=cnn_filters, kernel_size=3, activation="relu", padding="same")
+        self.transformer = TransformerBlock(d_model, num_heads, ff_dim)
+        self.global_pool = layers.GlobalAveragePooling1D()
+        self.fc = layers.Dense(1, activation="linear")
 
-def train_model(model, train_data, train_labels, val_data=None, val_labels=None, num_epochs=10, verbose=10, validation_split=0.1):
-    loss_fn = torch.nn.L1Loss()
-    optimiser = torch.optim.Adam(model.parameters(), lr=0.0001)
-    train_size = int(len(train_data) * (1 - validation_split))
-    val_data = train_data[train_size:]
-    val_labels = train_labels[train_size:]
-    train_data = train_data[:train_size]
-    train_labels = train_labels[:train_size]
+    def call(self, inputs, training=False):
+        x = self.conv1d(inputs)
+        x = self.transformer(x, training=training)
+        x = self.global_pool(x)
+        return self.fc(x)
 
-    train_hist = []
-    val_hist = []
+# 모델 초기화
+seq_length = X_train.shape[1]
+input_dim = X_train.shape[2]
+model = CNNSelfAttentionModel(seq_length=seq_length, d_model=32, num_heads=4, ff_dim=128, cnn_filters=32)
 
-    for i in range(num_epochs):
-        model.train()
-        epoch_loss = 0
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+              loss="mse",  # Mean Squared Error
+              metrics=["mae"])
 
-        for idx in range(len(train_data)):
-            optimiser.zero_grad()
-            y_pred = model(train_data[idx].unsqueeze(0))
-            loss = loss_fn(y_pred, train_labels[idx].unsqueeze(0))
-            loss.backward()
-            optimiser.step()
-            epoch_loss += loss.item()
+# 모델 학습
+history = model.fit(X_train, y_train,
+                    validation_split=0.1,
+                    epochs=50,
+                    batch_size=32,
+                    shuffle=True)
 
-        train_hist.append(epoch_loss / len(train_data))
-        model.eval()
-        val_loss = 0
-        with torch.no_grad():
-            for idx in range(len(val_data)):
-                y_pred = model(val_data[idx].unsqueeze(0))
-                loss = loss_fn(y_pred, val_labels[idx].unsqueeze(0))
-                val_loss += loss.item()
-
-        val_hist.append(val_loss / len(val_data))
-
-        if i % verbose == 0:
-            print(f"Epoch {i}, Train Loss: {train_hist[-1]:.4f}, Validation Loss: {val_hist[-1]:.4f}")
-
-    return model, train_hist, val_hist
-
-model = MotorPredict(n_features=1, n_hidden=32, seq_len=seq_length, n_layers=1)
-
-model, train_hist, val_hist = train_model(model, x_train_final, y_train_final, num_epochs=200, verbose=10, validation_split=0.1)
-
-def evaluate_model(model, test_data, test_labels):
-    model.eval()
-    loss_fn = torch.nn.L1Loss()
-    total_loss = 0
-
-    with torch.no_grad():
-        for idx in range(len(test_data)):
-            y_pred = model(test_data[idx].unsqueeze(0))
-            loss = loss_fn(y_pred, test_labels[idx].unsqueeze(0))
-            total_loss += loss.item()
-
-    avg_loss = total_loss / len(test_data)
-    print(f"Test Loss: {avg_loss:.4f}")
-    return avg_loss
-
-test_loss = evaluate_model(model, x_test_final, y_test_final)
+# 모델 평가
+loss, mae = model.evaluate(X_test, y_test)
+print(f"Test Loss (MSE): {loss}")
+print(f"Test MAE: {mae}")
 
 # 개별 샘플 예측 시간 측정
 single_prediction_times = []
 
-for i in range(len(x_test_final)):
-    single_input = x_test_final[i].unsqueeze(0)
-    start_time = time.time()  # 시작 시간
-    model(single_input)  # 예측
-    end_time = time.time()  # 종료 시간
-    single_prediction_times.append(end_time - start_time)  # 소요 시간 기록
+for i in range(len(X_test)):
+    single_input = X_test[i:i+1]
+    start_time = time.time()
+    model.predict(single_input)
+    end_time = time.time()
+    single_prediction_times.append(end_time - start_time)
 
 average_prediction_time = np.mean(single_prediction_times)
 print(f"Average Prediction Time per Sample: {average_prediction_time:.6f} seconds")
 
-# 학습 및 검증 손실 그래프
-plt.plot(train_hist, label="Training loss")
-plt.plot(val_hist, label="Validation loss")
+# 예측값 생성 및 복원
+y_pred = model.predict(X_test)
+y_pred_rescaled = target_scaler.inverse_transform(y_pred)
+y_test_rescaled = target_scaler.inverse_transform(y_test)
+
+# 예측값과 실제값 비교 시각화
+plt.figure(figsize=(10, 6))
+plt.plot(y_test_rescaled.flatten(), label='Actual Close Values', marker='o')
+plt.plot(y_pred_rescaled.flatten(), label='Predicted Close Values', marker='x')
+plt.title('Actual vs Predicted Close Values')
+plt.xlabel('Test Sample Index')
+plt.ylabel('Close Value')
 plt.legend()
 plt.show()
