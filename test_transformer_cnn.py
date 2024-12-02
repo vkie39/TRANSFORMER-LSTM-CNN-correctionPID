@@ -5,13 +5,11 @@ from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
 from tensorflow.keras import layers
 import matplotlib.pyplot as plt
+import time  # 시간 측정 모듈
 
 # CSV 파일 로드 (데이터 경로 수정 필요)
 data = pd.read_csv("sample_data_sp500.csv")
 data = data.replace(',', '', regex=True).astype(float)  # 쉼표 제거 및 숫자 변환
-
-# 데이터 확인
-print(data.head())
 
 # 입력과 출력 변수 분리
 features = ['Open', 'High', 'Low']
@@ -107,24 +105,26 @@ loss, mae = model.evaluate(X_test, y_test)
 print(f"Test Loss (MSE): {loss}")
 print(f"Test MAE: {mae}")
 
-# 학습 결과 시각화
-plt.plot(history.history['loss'], label='Train Loss')
-plt.plot(history.history['val_loss'], label='Validation Loss')
-plt.xlabel('Epochs')
-plt.ylabel('Loss')
-plt.legend()
-plt.show()
+# 개별 샘플 예측 시간 측정
+single_prediction_times = []
 
-# 테스트 데이터를 사용하여 예측값 생성
+for i in range(len(X_test)):
+    single_input = X_test[i:i+1]  # 테스트 데이터에서 하나의 샘플 추출
+    start_time = time.time()  # 시작 시간 기록
+    model.predict(single_input)  # 예측 수행
+    end_time = time.time()  # 종료 시간 기록
+    single_prediction_times.append(end_time - start_time)  # 소요 시간 저장
+
+# 평균 예측 시간 계산
+average_prediction_time = np.mean(single_prediction_times)
+print(f"Average Prediction Time per Sample: {average_prediction_time:.6f} seconds")
+
+# 예측값 생성
 y_pred = model.predict(X_test)
 
 # 예측값 복원 (타겟 스케일러로 복원)
 y_pred_rescaled = target_scaler.inverse_transform(y_pred)
 y_test_rescaled = target_scaler.inverse_transform(y_test)
-
-# 예측값과 실제값 출력
-print("Predicted Close Values:", y_pred_rescaled.flatten())
-print("Actual Close Values:", y_test_rescaled.flatten())
 
 # 예측값과 실제값 비교 시각화
 plt.figure(figsize=(10, 6))
