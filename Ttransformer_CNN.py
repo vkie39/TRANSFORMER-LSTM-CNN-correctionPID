@@ -8,6 +8,7 @@ from tensorflow.keras import layers
 
 # CSV 파일 로드 (바꿔야 함)
 data = pd.read_csv("motor_data.csv")
+data = data.replace(',', '', regex=True).astype(float)  # 쉼표 제거 및 숫자 변환
 
 # 데이터 확인
 print(data.head())
