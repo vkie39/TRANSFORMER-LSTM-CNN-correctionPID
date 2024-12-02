@@ -213,6 +213,36 @@ def evaluate_model(model, test_data, test_labels):
 #평가
 test_loss = evaluate_model(model, x_test_final, y_test_final)
 
+# 모델 평가 결과 출력 함수
+def print_model_performance(model, x_test, y_test):
+    print("Evaluating model on test data...")
+    test_loss = evaluate_model(model, x_test, y_test)  # 평균 손실
+    
+    # 추가 성능 지표 계산
+    y_pred_list = []
+    y_actual_list = []
+    
+    with torch.no_grad():
+        for idx in range(len(x_test)):
+            y_pred = model(x_test[idx].unsqueeze(0))
+            y_pred_list.append(y_pred.squeeze().item())
+            y_actual_list.append(y_test[idx].squeeze().item())
+    
+    y_pred_array = np.array(y_pred_list)
+    y_actual_array = np.array(y_actual_list)
+    
+    mae = np.mean(np.abs(y_pred_array - y_actual_array))  # Mean Absolute Error
+    mse = np.mean((y_pred_array - y_actual_array) ** 2)  # Mean Squared Error
+    correlation = np.corrcoef(y_pred_array, y_actual_array)[0, 1]  # Correlation coefficient
+    
+    print(f"Test Loss (L1): {test_loss:.4f}")
+    print(f"Mean Absolute Error (MAE): {mae:.4f}")
+    print(f"Mean Squared Error (MSE): {mse:.4f}")
+    print(f"Correlation Coefficient: {correlation:.4f}")
+
+# 모델 평가 및 성능 출력
+print_model_performance(model, x_test_final, y_test_final)
+
 plt.plot(train_hist, label="Training loss")
 plt.plot(val_hist, label="Val loss")
 plt.legend()
