@@ -5,7 +5,7 @@ from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
 from tensorflow.keras import layers
 import matplotlib.pyplot as plt
-import time  # 시간 측정 모듈
+import time
 
 # CSV 파일 로드
 data = pd.read_csv("sample_data_sp500.csv")
@@ -44,49 +44,25 @@ print(f"Generated y_seq shape: {y_seq.shape}")
 # 훈련 데이터와 테스트 데이터 분리
 X_train, X_test, y_train, y_test = train_test_split(X_seq, y_seq, test_size=0.2, shuffle=False)
 
-# Transformer 블록 정의
-class TransformerBlock(layers.Layer):
-    def __init__(self, d_model, num_heads, ff_dim, dropout=0.1):
-        super(TransformerBlock, self).__init__()
-        self.att = layers.MultiHeadAttention(num_heads=num_heads, key_dim=d_model)
-        self.ffn = tf.keras.Sequential([
-            layers.Dense(ff_dim, activation="relu"),
-            layers.Dense(d_model)
-        ])
-        self.layernorm1 = layers.LayerNormalization(epsilon=1e-6)
-        self.layernorm2 = layers.LayerNormalization(epsilon=1e-6)
-        self.dropout1 = layers.Dropout(dropout)
-        self.dropout2 = layers.Dropout(dropout)
-
-    def call(self, inputs, training):
-        attn_output = self.att(inputs, inputs)
-        attn_output = self.dropout1(attn_output, training=training)
-        out1 = self.layernorm1(inputs + attn_output)
-        ffn_output = self.ffn(out1)
-        ffn_output = self.dropout2(ffn_output, training=training)
-        return self.layernorm2(out1 + ffn_output)
-
-# CNN + Transformer 결합 모델 정의
-class CNNSelfAttentionModel(tf.keras.Model):
-    def __init__(self, seq_length, d_model, num_heads, ff_dim, cnn_filters, drop_rate = 0.1):
-        super(CNNSelfAttentionModel, self).__init__()
-        self.conv1d = layers.Conv1D(filters=cnn_filters, kernel_size=3, activation="relu", padding="same")
-        self.transformer = TransformerBlock(d_model, num_heads, ff_dim)
-        self.global_pool = layers.GlobalAveragePooling1D()
-        self.dropout_conv = layers.Dropout(dropout_rate)
-        self.fc = layers.Dense(1, activation="linear")
+# LSTM + Fully Connected Neural Network (NN) 모델 정의
+class LSTMNNModel(tf.keras.Model):
+    def __init__(self, lstm_units, dense_units, dropout_rate=0.1):
+        super(LSTMNNModel, self).__init__()
+        self.lstm = layers.LSTM(units=lstm_units, return_sequences=False)  # LSTM 레이어
+        self.dropout = layers.Dropout(dropout_rate)  # Dropout 레이어
+        self.dense1 = layers.Dense(units=dense_units, activation="relu")  # Fully Connected 레이어
+        self.dense2 = layers.Dense(1, activation="linear")  # 출력 레이어
 
     def call(self, inputs, training=False):
-        x = self.conv1d(inputs)
-        x = self.transformer(x, training=training)
-        x = self.global_pool(x)
-        return self.fc(x)
+        x = self.lstm(inputs, training=training)  # LSTM 처리
+        x = self.dropout(x, training=training)   # Dropout 적용
+        x = self.dense1(x)                       # 첫 번째 Dense 레이어
+        return self.dense2(x)                    # 출력 레이어
 
 # 모델 초기화
-seq_length = X_train.shape[1]
-input_dim = X_train.shape[2]
-model = CNNSelfAttentionModel(seq_length=seq_length, d_model=32, num_heads=4, ff_dim=128, cnn_filters=32)
+model = LSTMNNModel(lstm_units=64, dense_units=32, dropout_rate=0.2)
 
+# 모델 컴파일
 model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
               loss="mse",  # Mean Squared Error
               metrics=["mae"])
