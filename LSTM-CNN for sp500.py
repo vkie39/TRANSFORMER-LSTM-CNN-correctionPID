@@ -68,11 +68,12 @@ class TransformerBlock(layers.Layer):
 
 # CNN + Transformer 결합 모델 정의
 class CNNSelfAttentionModel(tf.keras.Model):
-    def __init__(self, seq_length, d_model, num_heads, ff_dim, cnn_filters):
+    def __init__(self, seq_length, d_model, num_heads, ff_dim, cnn_filters, drop_rate = 0.1):
         super(CNNSelfAttentionModel, self).__init__()
         self.conv1d = layers.Conv1D(filters=cnn_filters, kernel_size=3, activation="relu", padding="same")
         self.transformer = TransformerBlock(d_model, num_heads, ff_dim)
         self.global_pool = layers.GlobalAveragePooling1D()
+        self.dropout_conv = layers.Dropout(dropout_rate)
         self.fc = layers.Dense(1, activation="linear")
 
     def call(self, inputs, training=False):
