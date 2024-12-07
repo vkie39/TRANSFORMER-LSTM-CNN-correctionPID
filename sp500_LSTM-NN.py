@@ -157,7 +157,6 @@ loss, mae = model.evaluate(X_test, y_test)
 print(f"Test Loss (MSE): {loss}")
 print(f"Test MAE: {mae}")
 
-<<<<<<< Updated upstream
 # RAM 및 CPU 사용량 확인 (평가 후)
 print("After Evaluation:")
 print_ram_usage()
@@ -201,8 +200,6 @@ print("After Prediction:")
 print_ram_usage()
 print_cpu_usage()
 
-=======
->>>>>>> Stashed changes
 # 예측값 생성 및 복원
 y_pred = model.predict(X_test)
 y_pred_rescaled = target_scaler.inverse_transform(y_pred)
@@ -222,4 +219,3 @@ plt.show()
 print("Final Usage:")
 print_ram_usage()
 print_cpu_usage()
-s
