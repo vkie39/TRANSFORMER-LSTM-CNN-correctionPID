@@ -42,31 +42,33 @@ class RealTimePredictor:
         if len(self.feature_window_inputs) > self.feature_window:
             self.feature_window_inputs.pop(0)
 
-    def validate_prediction(self):
+    def validate_prediction(self, current_input):
         """
         예측 값 검증:
-        - 현재 예측에 사용된 입력값(5개)을 제외한 최근 20개 평균과 비교
+        - 현재 예측에 사용된 입력값(5개)을 제외한 최근 20개 평균과 비교.
+        - 매개변수로 현재 입력값(current_input)을 받아 검증 수행.
         """
         if len(self.feature_window_inputs) < self.feature_window:
             print("Not enough historical data to validate prediction. Skipping validation.")
-            return True
+            return True  # 초기 상태에서는 검증 없이 진행
 
-        # 평균 계산 및 최근 입력값(5개)과 차이 비교
+        # 평균 계산 및 현재 입력값(5개)과 차이 비교
         feature_window_array = np.array(self.feature_window_inputs)
         data_for_mean = feature_window_array[:-self.seq_length]
         recent_mean = np.mean(data_for_mean, axis=0)
         recent_inputs_array = np.array(self.recent_inputs)
 
+        # 각 입력값과 평균의 차이 계산
         diff = np.abs(recent_inputs_array - recent_mean)
         if np.all(diff < self.threshold):
             print("Prediction validated: Current features align with recent trends.")
-            return True
+            return False  # 유효하면 False 반환
         else:
             print("Prediction warning: Current features deviate significantly from recent trends.")
             print(f"Recent Mean (excluding current inputs): {recent_mean}")
             print(f"Recent Inputs: {recent_inputs_array}")
             print(f"Differences: {diff}")
-            return False
+            return True  # 이상이 있으면 True 반환
 
     def predict_target(self):
         """
@@ -112,7 +114,7 @@ class RealTimePredictor:
                     print(f"Predicted Target: {predicted_target:.2f}")
 
                     # 예측 검증
-                    is_valid = self.validate_prediction()
+                    is_valid = self.validate_prediction(scaled_features)
                     if not is_valid:
                         print("Warning: Significant deviation detected. Please check input data.")
             except ValueError:
