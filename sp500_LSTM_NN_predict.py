@@ -83,6 +83,11 @@ class RealTimePredictor:
         input_sequence = np.array(self.recent_inputs)
         input_sequence = np.expand_dims(input_sequence, axis=0)  # (1, seq_length, features) 형태
         scaled_prediction = self.model.predict(input_sequence)
+        
+        #출력 타입 확인 코드 추가
+        print(f"Type of scaled_prediction: {type(scaled_prediction)}")  # 출력 타입 확인
+        print(f"Shape of scaled_prediction: {scaled_prediction.shape}")  # 출력 데이터 형태 확인
+
         prediction = self.target_scaler.inverse_transform(scaled_prediction)
         return prediction.flatten()[0]  # 예측값 반환
 
