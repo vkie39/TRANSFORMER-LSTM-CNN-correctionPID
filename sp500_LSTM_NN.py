@@ -65,7 +65,7 @@ class LSTMNNModel(tf.keras.Model):
         self.lstm = layers.LSTM(units=lstm_units, return_sequences=False)  # LSTM 레이어
         self.dropout = layers.Dropout(dropout_rate)  # Dropout 레이어
         self.dense1 = layers.Dense(units=dense_units, activation="linear")  # Fully Connected 레이어
-        self.dense2 = layers.Dense(1, activation="linear")  # 출력 레이어
+        self.dense2 = layers.Dense(1, activation="linear")  # 출력 레이어 - 출력 개수가 여러 개일 때는 이 코드 변경해줘야 함
 
     def call(self, inputs, training=False):
         x = self.lstm(inputs, training=training)  # LSTM 처리
@@ -73,65 +73,11 @@ class LSTMNNModel(tf.keras.Model):
         x = self.dense1(x)                       # 첫 번째 Dense 레이어
         return self.dense2(x)                    # 출력 레이어
 
-'''
-# Learning Rate Finder 클래스
-class LearningRateFinder:
-    def __init__(self, model):
-        self.model = model
-        self.lrs = []
-        self.losses = []
-
-    def find(self, X_train, y_train, batch_size=32, min_lr=1e-7, max_lr=1, steps=100):
-        print(f"X_train shape: {X_train.shape}")
-        print(f"y_train shape: {y_train.shape}")
-        """
-        학습률을 점진적으로 증가시키며 손실 기록.
-        """
-        initial_weights = self.model.get_weights()
-        lr_schedule = np.logspace(np.log10(min_lr), np.log10(max_lr), steps)
-        optimizer = self.model.optimizer
-        initial_lr = float(tf.keras.backend.get_value(optimizer.learning_rate))  # 수정된 부분
-        #print(type(initial_lr))
-
-        for lr in lr_schedule:
-            tf.keras.backend.set_value(optimizer.learning_rate, float(lr))  # 수정된 부분
-            loss = self.model.train_on_batch(X_train, y_train)
-            print(f"Learning Rate: {lr}, Loss: {loss}, Loss Type: {type(loss)}")  # 추가
-            self.lrs.append(lr)
-            self.losses.append(loss)
-
-        self.model.set_weights(initial_weights)
-        tf.keras.backend.set_value(optimizer.learning_rate, initial_lr)  # 수정된 부분
-
-
-    def plot(self):
-        """
-        학습률 vs 손실을 시각화.
-        """
-        plt.figure(figsize=(10, 6))
-        plt.plot(self.lrs, self.losses)
-        plt.xscale('log')
-        plt.xlabel('Learning Rate (log scale)')
-        plt.ylabel('Loss')
-        plt.title('Learning Rate Finder')
-        plt.show()
-        '''
 
 # 모델 초기화
 model = LSTMNNModel(lstm_units=64, dense_units=32, dropout_rate=0.2)
 model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001), loss="mse", metrics=["mae"])
 
-'''
-# Learning Rate Finder 실행
-lr_finder = LearningRateFinder(model)
-lr_finder.find(X_train, y_train, batch_size=32, min_lr=1e-7, max_lr=1, steps=100)
-lr_finder.plot()
-
-
-# 최적 학습률 설정 (그래프를 보고 수동으로 선택)
-optimal_lr = 0.001  # 그래프에서 선택된 최적 학습률
-tf.keras.backend.set_value(model.optimizer.lr, optimal_lr)
-'''
 
 # RAM 및 CPU 사용량 확인 (학습 시작 전)
 print("Before Training:")
