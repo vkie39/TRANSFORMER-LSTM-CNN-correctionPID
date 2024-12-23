@@ -4,36 +4,6 @@ from sklearn.preprocessing import MinMaxScaler
 import tensorflow as tf
 from tensorflow.keras import layers
 
-# CSV 파일 로드 및 데이터 전처리
-data = pd.read_csv("sample_data_sp500.csv")
-data = data.replace(',', '', regex=True).astype(float)
-
-features = ['target_speed', 'cmd_vel_linear_x', 'pitch', 'mass']  # 입력 변수
-target = ['kp', 'ki', 'kd']  # 출력 변수
-
-X = data[features].values
-y = data[target].values
-
-# 스케일링
-input_scaler = MinMaxScaler(feature_range=(-1, 1))
-target_scaler = MinMaxScaler(feature_range=(-1, 1))
-
-X = input_scaler.fit_transform(X)
-y = target_scaler.fit_transform(y)
-
-seq_length = 5  # 시퀀스 길이
-
-
-def create_sequences_sliding_window(X, y, seq_length):
-    X_seq, y_seq = [], []
-    for i in range(len(X) - seq_length + 1):
-        X_seq.append(X[i:i + seq_length])
-        y_seq.append(y[i + seq_length - 1])
-    return np.array(X_seq), np.array(y_seq)
-
-
-X_seq, y_seq = create_sequences_sliding_window(X, y, seq_length)
-
 # Transformer 블록 정의
 class TransformerBlock(layers.Layer):
     def __init__(self, d_model, num_heads, ff_dim, dropout=0.1):
@@ -71,12 +41,6 @@ class CNNSelfAttentionModel(tf.keras.Model):
         x = self.transformer(x, training=training)
         x = self.global_pool(x)
         return self.fc(x)
-
-
-# 데이터 및 스케일러 저장
-def get_data():
-    return X_seq, y_seq, input_scaler, target_scaler
-
 
 # 모델 생성 함수
 def create_model(input_dim, output_dim, seq_length):
