@@ -11,7 +11,7 @@ input_scaler = MinMaxScaler(feature_range=(-1, 1))  # 입력 데이터 범위에
 target_scaler = MinMaxScaler(feature_range=(-1, 1))  # 출력 데이터 범위에 맞게 초기화
 
 class RealTimePredictor:
-    def __init__(self, model, input_scaler, target_scaler, seq_length=5, feature_window=25, threshold=0.3):
+    def __init__(self, model, input_scaler, target_scaler, seq_length=5, feature_window=25, threshold=0.3, history_window=5):
         """
         실시간 예측을 하기 위한 초기화:
         - 모델, 스케일러, 시퀀스 길이, 이전 입력값 창 크기(feature_window), 검증 임계값 설정
@@ -35,6 +35,9 @@ class RealTimePredictor:
         self.feature_window = feature_window # 평균 비교를 위한 입력값 창 크기
         self.feature_window_inputs = [] # 입력값 평균 비교를 위한 저장소
         self.threshold = threshold # 입력값 변화 검증을 위한 임계값
+
+        self.predicted_targets = []  # 예측된 타겟값들을 저장할 리스트
+        self.history_window = history_window  # 예측값 비교를 위한 기록 창 크기
 
     def preprocess_input(self, raw_input):
         """
@@ -113,8 +116,14 @@ class RealTimePredictor:
         input_sequence = np.array(self.recent_inputs)
         input_sequence = np.expand_dims(input_sequence, axis=0)
         scaled_prediction = self.model.predict(input_sequence)
-        prediction = self.target_scaler.inverse_transform(scaled_prediction)
-        return prediction.flatten()
+        prediction = self.target_scaler.inverse_transform(scaled_prediction).flatten()
+
+        # 예측된 타겟값 기록 
+        if len(self.predicted_targets) >= self.history_window:
+            self.predicted_targets.pop(0)  # 예측값 기록이 오래되면 삭제
+        self.predicted_targets.append(prediction)
+
+        return prediction
 
     def run_real_time_prediction(self):
         """
@@ -147,9 +156,22 @@ class RealTimePredictor:
                     print(f"Predicted Target (kp, ki, kd): {predicted_target}")
 
                     # 예측 검증
-                    is_valid = self.validate_prediction()
-                    if not is_valid:
-                        print("Warning: Significant deviation detected. Please check input data.")
+                    # 이전 예측값들과 비교 (가장 최근 예측을 제외한 4래 예측값들과의 차이 계산)
+                    if len(self.predicted_targets) >= 5:
+                        previous_predictions = np.array(self.predicted_targets[:-1])  # 가장 최근 값을 제외한 4개 값
+                        previous_avg = np.mean(previous_predictions, axis=0)
+
+                        diff = np.abs(predicted_target - previous_avg)
+                        print(f"Difference from previous predictions: {diff}")
+
+                        # 예측값 차이가 임계값을 초과하는지 확인
+                        if np.any(diff > self.threshold):
+                            print("Significant difference detected. Performing validation.")
+                            is_valid = self.validate_prediction(predicted_target)
+                            if not is_valid:
+                                print("Warning: Significant deviation detected. Please check input data.")
+                        else:
+                            print("Predicted value is similar to the previous values. Skipping validation.")
             except ValueError:
                 print("Invalid input. Please enter numeric values separated by commas (e.g., 1.2, 0.8, -0.1, 50).")
             except Exception as e:

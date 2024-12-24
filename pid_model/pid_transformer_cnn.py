@@ -5,7 +5,7 @@ import tensorflow as tf
 from tensorflow.keras import layers
 
 # Transformer 블록 정의
-class TransformerBlock(layers.Layer):
+class TransformerBlock(layers.Layer):  #TensorFlow의 커스텀 레이어 정의. Attention, feedForward 
     def __init__(self, d_model, num_heads, ff_dim, dropout=0.1):
         super(TransformerBlock, self).__init__()
         self.att = layers.MultiHeadAttention(num_heads=num_heads, key_dim=d_model)
