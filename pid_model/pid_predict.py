@@ -1,14 +1,25 @@
 import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import MinMaxScaler
+import joblib
+import os
 
 # 저장된 모델 경로
-model_save_path = "model/saved_pid_model"
+model_save_path = "model/saved_pid_model.keras"
 model = tf.keras.models.load_model(model_save_path)
 
 # 스케일러 초기화
-input_scaler = MinMaxScaler(feature_range=(-1, 1))  # 입력 데이터 범위에 맞게 초기화
-target_scaler = MinMaxScaler(feature_range=(-1, 1))  # 출력 데이터 범위에 맞게 초기화
+#input_scaler = MinMaxScaler(feature_range=(-1, 1))  # 입력 데이터 범위에 맞게 초기화
+#target_scaler = MinMaxScaler(feature_range=(-1, 1))  # 출력 데이터 범위에 맞게 초기화
+
+scaler_dir = "scalers"
+input_scaler_path = os.path.join(scaler_dir, "input_scaler.pkl")
+target_scaler_path = os.path.join(scaler_dir, "target_scaler.pkl")
+
+input_scaler = joblib.load(input_scaler_path)
+target_scaler = joblib.load(target_scaler_path)
+print("Scalers loaded successfully")
+
 
 class RealTimePredictor:
     def __init__(self, model, input_scaler, target_scaler, seq_length=5, feature_window=25, threshold=0.3, history_window=5):
@@ -45,7 +56,9 @@ class RealTimePredictor:
         - 실시간으로 입력받은 원본 데이터를 모델이 처리할 수 있는 스케일로 변환.
         + -1~ 1 사이로 스케일링.
         """
+        #self.input_scaler.fit([raw_input])
         scaled_input = self.input_scaler.transform([raw_input])
+        print(f"Scaled Input: scaled_input")
         return scaled_input.flatten() # 1D 배열로 반환 (저장 및 처리를 간편하게 하기 위함)
 
     def update_recent_inputs(self, input_features):
@@ -114,8 +127,14 @@ class RealTimePredictor:
 
         # 시퀀스 생성 및 모델 입력 준비
         input_sequence = np.array(self.recent_inputs)
+        print(f"1. input sequence: {input_sequence}")
+
         input_sequence = np.expand_dims(input_sequence, axis=0)
+        print(f"2. input sequence: {input_sequence}")
+        
         scaled_prediction = self.model.predict(input_sequence)
+        print(f"222Predicted Target (kp, ki, kd): {scaled_prediction}")
+        
         prediction = self.target_scaler.inverse_transform(scaled_prediction).flatten()
 
         # 예측된 타겟값 기록 

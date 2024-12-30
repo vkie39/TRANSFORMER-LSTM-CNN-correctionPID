@@ -6,9 +6,11 @@ from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 from pid_transformer_cnn import create_model
 from tensorflow.keras import layers
+import pandas as pd
+import joblib
 
 # CSV 파일 로드 및 데이터 전처리
-data = pd.read_csv("sample_data_sp500.csv")
+data = pd.read_csv("sensorData/merged_output_2024_12_31_01_03.csv")
 data = data.replace(',', '', regex=True).astype(float)
 
 features = ['target_speed', 'cmd_vel_linear_x', 'pitch', 'mass']  # 입력 변수
@@ -23,6 +25,17 @@ target_scaler = MinMaxScaler(feature_range=(-1, 1))
 
 X = input_scaler.fit_transform(X)
 y = target_scaler.fit_transform(y)
+
+scaler_dir = "scalers"
+os.makedirs(scaler_dir, exist_ok=True)
+
+input_scaler_path = os.path.join(scaler_dir, "input_scaler.pkl")
+target_scaler_path = os.path.join(scaler_dir, "target_scaler.pkl")
+
+joblib.dump(input_scaler, input_scaler_path)
+joblib.dump(target_scaler, target_scaler_path)
+print(f"Scalers saved to {scaler_dir}")
+
 
 seq_length = 5  # 시퀀스 길이
 
@@ -55,21 +68,29 @@ output_dim = y_train.shape[1]
 model = create_model(input_dim=input_dim, output_dim=output_dim, seq_length=seq_length)
 
 # 모델 컴파일
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.005),
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
               loss="mse",
               metrics=["mae"])
+
+# 경로 생성
+model_save_dir = "model"
+os.makedirs(model_save_dir, exist_ok=True)  # 폴더 생성 (이미 존재해도 에러 없음)
+model_save_path = os.path.join(model_save_dir, "saved_pid_model.keras")
+
+# 검증 손실(val_loss) 개선 안될 시 동적으로 학습률 조정
+reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
+                                                 patience=5, min_lr=1e-6)
 
 # 모델 학습
 history = model.fit(X_train, y_train,
                     validation_split=0.1,
                     epochs=100,
                     batch_size=32,
-                    shuffle=False)
+                    shuffle=False,
+                    callbacks=[reduce_lr]
+                    )
 
 # 모델 저장 (model 폴더 아래로)
-model_save_dir = "model"
-os.makedirs(model_save_dir, exist_ok=True)  # 폴더 생성 (이미 존재해도 에러 없음)
-model_save_path = os.path.join(model_save_dir, "saved_pid_model")
 model.save(model_save_path)
 print(f"Model saved to {model_save_path}")
 
