@@ -1,28 +1,10 @@
 import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import MinMaxScaler
-import time
-import sys
-import os
-from tensorflow.keras import layers
-from keras.models import load_model
-from tensorflow.keras.models import load_model
 
-# 현재 파일 기준으로 루트 디렉토리 경로 추가
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
-from pid_model.pid_transformer_cnn import CNNSelfAttentionModel
-
-# 저장된 모델 경로 정의
-model_save_path = os.path.abspath("model/saved_pid_model.h5")
-
-try:
-    model = load_model(model_save_path, custom_objects={"CNNSelfAttentionModel": CNNSelfAttentionModel})
-    print("모델이 성공적으로 로드되었습니다.")
-except ValueError as e:
-    print(f"모델 로드 중 오류 발생: {e}")
-
-
+# 저장된 모델 경로
+model_save_path = "model/saved_pid_model"
+model = tf.keras.models.load_model(model_save_path)
 
 # 스케일러 초기화
 input_scaler = MinMaxScaler(feature_range=(-1, 1))  # 입력 데이터 범위에 맞게 초기화
@@ -123,6 +105,8 @@ class RealTimePredictor:
         """
         타겟 값 예측:
         - 최근 입력값이 seq_length에 도달했을 때 모델에 전달하여 타겟 값을 예측합니다.
+
+        import한 예측 모델로 target값을 예측하는 과정
         """
         if len(self.recent_inputs) < self.seq_length:
             print(f"Not enough data to form a sequence. Waiting for {self.seq_length - len(self.recent_inputs)} more inputs.")
@@ -131,25 +115,15 @@ class RealTimePredictor:
         # 시퀀스 생성 및 모델 입력 준비
         input_sequence = np.array(self.recent_inputs)
         input_sequence = np.expand_dims(input_sequence, axis=0)
-        
-        # 예측 시간 측정 시작
-        start_time = time.time()
         scaled_prediction = self.model.predict(input_sequence)
-        end_time = time.time()
-        prediction_time = end_time - start_time
-        
         prediction = self.target_scaler.inverse_transform(scaled_prediction).flatten()
-    
-        # 예측 시간 출력
-        print(f"Prediction time: {prediction_time:.4f} seconds")
-    
+
         # 예측된 타겟값 기록 
         if len(self.predicted_targets) >= self.history_window:
             self.predicted_targets.pop(0)  # 예측값 기록이 오래되면 삭제
         self.predicted_targets.append(prediction)
-    
+
         return prediction
-    
 
     def run_real_time_prediction(self):
         """
