@@ -28,9 +28,17 @@ class TransformerBlock(layers.Layer):  #TensorFlow의 커스텀 레이어 정의
 
 
 # Transformer + CNN 결합 모델 정의
+# Transformer + CNN 결합 모델 정의
 class CNNSelfAttentionModel(tf.keras.Model):
-    def __init__(self, seq_length, d_model, num_heads, ff_dim, cnn_filters, output_dim):
-        super(CNNSelfAttentionModel, self).__init__()
+    def __init__(self, seq_length, d_model, num_heads, ff_dim, cnn_filters, output_dim, **kwargs):
+        super(CNNSelfAttentionModel, self).__init__(**kwargs)
+        self.seq_length = seq_length
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.ff_dim = ff_dim
+        self.cnn_filters = cnn_filters
+        self.output_dim = output_dim
+
         self.conv1d = layers.Conv1D(filters=cnn_filters, kernel_size=3, activation="tanh", padding="same")
         self.transformer = TransformerBlock(d_model, num_heads, ff_dim)
         self.global_pool = layers.GlobalAveragePooling1D()
@@ -41,6 +49,23 @@ class CNNSelfAttentionModel(tf.keras.Model):
         x = self.transformer(x, training=training)
         x = self.global_pool(x)
         return self.fc(x)
+
+    def get_config(self):
+        config = super(CNNSelfAttentionModel, self).get_config()
+        config.update({
+            "seq_length": self.seq_length,
+            "d_model": self.d_model,
+            "num_heads": self.num_heads,
+            "ff_dim": self.ff_dim,
+            "cnn_filters": self.cnn_filters,
+            "output_dim": self.output_dim
+        })
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
 
 # 모델 생성 함수
 def create_model(input_dim, output_dim, seq_length):

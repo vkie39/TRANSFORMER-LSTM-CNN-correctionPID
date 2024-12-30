@@ -6,10 +6,21 @@ from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
 from pid_transformer_cnn import create_model
 from tensorflow.keras import layers
+import pandas as pd
 
-# CSV 파일 로드 및 데이터 전처리
-data = pd.read_csv("sample_data_sp500.csv")
-data = data.replace(',', '', regex=True).astype(float)
+# sensorData 폴더에 있는 모든 CSV 파일 로드 및 결합
+def load_all_csv(folder_path):
+    all_files = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.endswith('.csv')]
+    data_frames = []
+    for file in all_files:
+        df = pd.read_csv(file)
+        df = df.replace(',', '', regex=True).astype(float)
+        data_frames.append(df)
+    return pd.concat(data_frames, ignore_index=True)
+
+# 데이터 로드 및 전처리
+folder_path = "sensorData"
+data = load_all_csv(folder_path)
 
 features = ['target_speed', 'cmd_vel_linear_x', 'pitch', 'mass']  # 입력 변수
 target = ['kp', 'ki', 'kd']  # 출력 변수
@@ -26,7 +37,6 @@ y = target_scaler.fit_transform(y)
 
 seq_length = 5  # 시퀀스 길이
 
-
 def create_sequences_sliding_window(X, y, seq_length):
     X_seq, y_seq = [], []
     for i in range(len(X) - seq_length + 1):
@@ -39,7 +49,6 @@ X_seq, y_seq = create_sequences_sliding_window(X, y, seq_length)
 # 데이터 및 스케일러 저장
 def get_data():
     return X_seq, y_seq, input_scaler, target_scaler
-
 
 # 데이터 로드
 X_seq, y_seq, input_scaler, target_scaler = get_data()
@@ -62,16 +71,21 @@ model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.005),
 # 모델 학습
 history = model.fit(X_train, y_train,
                     validation_split=0.1,
-                    epochs=100,
+                    epochs=10,
                     batch_size=32,
                     shuffle=False)
 
-# 모델 저장 (model 폴더 아래로)
+# 모델 저장 (SavedModel 형식으로 저장)
 model_save_dir = "model"
 os.makedirs(model_save_dir, exist_ok=True)  # 폴더 생성 (이미 존재해도 에러 없음)
-model_save_path = os.path.join(model_save_dir, "saved_pid_model")
-model.save(model_save_path)
+
+# SavedModel 형식으로 저장 (save_format 제거)
+model_save_path = os.path.join(model_save_dir, "saved_pid_model.h5")
+model.save(model_save_path, save_format='h5')
 print(f"Model saved to {model_save_path}")
+
+
+
 
 # 모델 평가
 loss, mae = model.evaluate(X_test, y_test)

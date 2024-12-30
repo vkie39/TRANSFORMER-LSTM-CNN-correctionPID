@@ -5,8 +5,8 @@ from sklearn.preprocessing import MinMaxScaler
 from pid_LSTM_NN import create_model  # Scaler와 모델 가져오기
 
 # 저장된 모델 경로
-model_save_path = "model/saved_LSTM_model"
-model = tf.keras.models.load_model(model_save_path)
+model_save_path = "model\saved_pid_model"  # Path to your .pb model
+model = tf.saved_model.load(model_save_path)
 
 # 스케일러 초기화
 input_scaler = MinMaxScaler(feature_range=(-1, 1))  # 입력 데이터 범위에 맞게 초기화
