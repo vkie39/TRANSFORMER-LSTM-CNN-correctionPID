@@ -5,7 +5,7 @@ import joblib
 import os
 
 # 저장된 모델 경로
-model_save_path = "model/saved_pid_model.keras"
+model_save_path = "model/saved_transformer_model.keras"
 model = tf.keras.models.load_model(model_save_path)
 
 # 스케일러 초기화
@@ -22,7 +22,7 @@ print("Scalers loaded successfully")
 
 
 class RealTimePredictor:
-    def __init__(self, model, input_scaler, target_scaler, seq_length=5, feature_window=25, threshold=0.3, history_window=5):
+    def __init__(self, model, input_scaler, target_scaler, seq_length=5, feature_window=25, threshold1=0.3, threshold2=0.3, history_window=5):
         """
         실시간 예측을 하기 위한 초기화:
         - 모델, 스케일러, 시퀀스 길이, 이전 입력값 창 크기(feature_window), 검증 임계값 설정
@@ -45,7 +45,9 @@ class RealTimePredictor:
 
         self.feature_window = feature_window # 평균 비교를 위한 입력값 창 크기
         self.feature_window_inputs = [] # 입력값 평균 비교를 위한 저장소
-        self.threshold = threshold # 입력값 변화 검증을 위한 임계값
+        self.threshold1 = threshold1 # 입력값 변화 검증을 위한 임계값
+        self.threshold2 = threshold2 # 입력값 변화 검증을 위한 임계값
+
 
         self.predicted_targets = []  # 예측된 타겟값들을 저장할 리스트
         self.history_window = history_window  # 예측값 비교를 위한 기록 창 크기
@@ -104,7 +106,7 @@ class RealTimePredictor:
         diff = np.abs(recent_inputs_array - recent_mean)
 
         # 모든 입력값의 차이가 임계값 이내인지 확인. 임계값보다 클 때 target값이 달라지는 것이 맞다고 판단. (입력값들이 차이가 별로 안나는데 target만 바뀌면 이상)
-        if np.all(diff < self.threshold):
+        if np.all(diff < self.threshold1):
             print("Prediction validated: Current features align with recent trends.")
             return False
         else:
@@ -133,9 +135,14 @@ class RealTimePredictor:
         print(f"2. input sequence: {input_sequence}")
         
         scaled_prediction = self.model.predict(input_sequence)
-        print(f"222Predicted Target (kp, ki, kd): {scaled_prediction}")
+        print(f"Predicted Target (kp, ki, kd): {scaled_prediction}")
         
         prediction = self.target_scaler.inverse_transform(scaled_prediction).flatten()
+        
+        # kd 값을 제한
+        if prediction[2] > 0.6:  # kd 값은 prediction의 세 번째 요소 (index 2)
+            print(f"kd value {prediction[2]} exceeds 0.6. Adjusting to 0.6.")
+            prediction[2] = 0.6
 
         # 예측된 타겟값 기록 
         if len(self.predicted_targets) >= self.history_window:
@@ -184,7 +191,7 @@ class RealTimePredictor:
                         print(f"Difference from previous predictions: {diff}")
 
                         # 예측값 차이가 임계값을 초과하는지 확인
-                        if np.any(diff > self.threshold):
+                        if np.any(diff > self.threshold2):
                             print("Significant difference detected. Performing validation.")
                             is_valid = self.validate_prediction(predicted_target)
                             if not is_valid:

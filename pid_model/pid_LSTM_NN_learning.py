@@ -8,6 +8,7 @@ import psutil
 import time
 import os
 from pid_LSTM_NN import create_model  # 모델 생성 함수 불러오기
+import joblib
 
 # RAM 사용량 확인 함수
 def print_ram_usage():
@@ -22,22 +23,32 @@ def print_cpu_usage():
     print(f"CPU Usage: {cpu_percent:.2f}%")
 
 # CSV 파일 로드
-data = pd.read_csv("sample_data_sp500.csv")
+data = pd.read_csv("sensorData/merged_output_2024_12_31_08_02.csv")
 data = data.replace(',', '', regex=True).astype(float)  # 쉼표 제거 및 숫자 변환
 
 # 입력과 출력 변수 분리
-features = ['Open', 'High', 'Low']
-target = 'Close'
+features = ['target_speed', 'cmd_vel_linear_x', 'pitch', 'mass']
+target = ['kp', 'ki', 'kd']
 
-X = data[features].values
-y = data[target].values
+X = data[features].values[:-1]
+y = data[target].values[1:]
 
 # 데이터 스케일링
 input_scaler = MinMaxScaler(feature_range=(-1, 1))
 target_scaler = MinMaxScaler(feature_range=(-1, 1))
 
 X = input_scaler.fit_transform(X)
-y = target_scaler.fit_transform(y.reshape(-1, 1))
+y = target_scaler.fit_transform(y)
+
+scaler_dir = "LSTM_scalers"
+os.makedirs(scaler_dir, exist_ok=True)
+
+input_scaler_path = os.path.join(scaler_dir, "input_scaler.pkl")
+target_scaler_path = os.path.join(scaler_dir, "target_scaler.pkl")
+
+joblib.dump(input_scaler, input_scaler_path)
+joblib.dump(target_scaler, target_scaler_path)
+print(f"Scalers saved to {scaler_dir}")
 
 # Sliding Window를 이용한 시퀀스 데이터 생성
 seq_length = 5
@@ -95,11 +106,13 @@ y_pred_rescaled = target_scaler.inverse_transform(y_pred)
 y_test_rescaled = target_scaler.inverse_transform(y_test)
 
 plt.figure(figsize=(10, 6))
-plt.plot(y_test_rescaled.flatten(), label="Actual Close Values", marker='o')
-plt.plot(y_pred_rescaled.flatten(), label="Predicted Close Values", marker='x')
-plt.title("Actual vs Predicted Close Values")
-plt.xlabel("Test Sample Index")
-plt.ylabel("Close Value")
+target = ['kp', 'ki', 'kd']  # 출력 변수
+for i, label in enumerate(target):
+    plt.plot(y_test_rescaled[:, i], label=f'Actual {label}', marker='o')
+    plt.plot(y_pred_rescaled[:, i], label=f'Predicted {label}', marker='x')
+plt.title('Actual vs Predicted PID Values')
+plt.xlabel('Test Sample Index')
+plt.ylabel('PID Values')
 plt.legend()
 plt.show()
 

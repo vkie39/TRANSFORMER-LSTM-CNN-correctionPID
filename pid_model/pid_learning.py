@@ -10,14 +10,14 @@ import pandas as pd
 import joblib
 
 # CSV 파일 로드 및 데이터 전처리
-data = pd.read_csv("sensorData/merged_output_2024_12_31_01_03.csv")
+data = pd.read_csv("sensorData/merged_output_2024_12_31_08_02.csv")
 data = data.replace(',', '', regex=True).astype(float)
 
 features = ['target_speed', 'cmd_vel_linear_x', 'pitch', 'mass']  # 입력 변수
 target = ['kp', 'ki', 'kd']  # 출력 변수
 
-X = data[features].values
-y = data[target].values
+X = data[features].values[:-1]
+y = data[target].values[1:]
 
 # 스케일링
 input_scaler = MinMaxScaler(feature_range=(-1, 1))
@@ -75,7 +75,7 @@ model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
 # 경로 생성
 model_save_dir = "model"
 os.makedirs(model_save_dir, exist_ok=True)  # 폴더 생성 (이미 존재해도 에러 없음)
-model_save_path = os.path.join(model_save_dir, "saved_pid_model.keras")
+model_save_path = os.path.join(model_save_dir, "saved_transformer_model.keras")
 
 # 검증 손실(val_loss) 개선 안될 시 동적으로 학습률 조정
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
