@@ -30,15 +30,36 @@ data = data.replace(',', '', regex=True).astype(float)  # 쉼표 제거 및 숫�
 features = ['target_speed', 'cmd_vel_linear_x', 'pitch', 'mass']
 target = ['kp', 'ki', 'kd']
 
-X = data[features].values[:-1]
-y = data[target].values[1:]
+# 변화량 계산
+data['delta_speed'] = data['target_speed'].diff().fillna(0)
+data['delta_kp'] = data['kp'].diff().fillna(0)
+data['delta_ki'] = data['ki'].diff().fillna(0)
+data['delta_kd'] = data['kd'].diff().fillna(0)
+
+# 변화량 임계값 설정
+speed_threshold = 0.01
+pid_threshold = 0.01
+
+# 변화량 기준 데이터 필터링
+filtered_data = data[
+    (data['delta_speed'].abs() > speed_threshold) |
+    (data['delta_kp'].abs() > pid_threshold) |
+    (data['delta_ki'].abs() > pid_threshold) |
+    (data['delta_kd'].abs() > pid_threshold)
+]
+
+print(f"Original Data Size: {len(data)}, Filtered Data Size: {len(filtered_data)}")
+
+# 필터링된 데이터에서 입력과 출력 분리
+X_filtered = filtered_data[features].values[:-1]
+y_filtered = filtered_data[target].values[1:]
 
 # 데이터 스케일링
 input_scaler = MinMaxScaler(feature_range=(-1, 1))
 target_scaler = MinMaxScaler(feature_range=(-1, 1))
 
-X = input_scaler.fit_transform(X)
-y = target_scaler.fit_transform(y)
+X_filtered = input_scaler.fit_transform(X_filtered)
+y_filtered = target_scaler.fit_transform(y_filtered)
 
 scaler_dir = "LSTM_scalers"
 os.makedirs(scaler_dir, exist_ok=True)
@@ -60,10 +81,12 @@ def create_sequences_sliding_window(X, y, seq_length):
         y_seq.append(y[i + seq_length - 1])
     return np.array(X_seq), np.array(y_seq)
 
-X_seq, y_seq = create_sequences_sliding_window(X, y, seq_length)
+X_seq_filtered, y_seq_filtered = create_sequences_sliding_window(X_filtered, y_filtered, seq_length)
 
 # 훈련 데이터와 테스트 데이터 분리
-X_train, X_test, y_train, y_test = train_test_split(X_seq, y_seq, test_size=0.2, shuffle=False)
+X_train_filtered, X_test_filtered, y_train_filtered, y_test_filtered = train_test_split(
+    X_seq_filtered, y_seq_filtered, test_size=0.2, shuffle=False
+)
 
 # 모델 생성 및 컴파일
 model = create_model(lstm_units=64, dense_units=32, dropout_rate=0.2)
@@ -76,7 +99,7 @@ print_cpu_usage()
 
 # 모델 학습
 history = model.fit(
-    X_train, y_train,
+    X_train_filtered, y_train_filtered,
     validation_split=0.1,
     epochs=100,
     batch_size=32,
@@ -96,17 +119,16 @@ print_ram_usage()
 print_cpu_usage()
 
 # 모델 평가
-loss, mae = model.evaluate(X_test, y_test)
+loss, mae = model.evaluate(X_test_filtered, y_test_filtered)
 print(f"Test Loss (MSE): {loss}")
 print(f"Test MAE: {mae}")
 
 # 예측값 복원 및 비교 시각화
-y_pred = model.predict(X_test)
+y_pred = model.predict(X_test_filtered)
 y_pred_rescaled = target_scaler.inverse_transform(y_pred)
-y_test_rescaled = target_scaler.inverse_transform(y_test)
+y_test_rescaled = target_scaler.inverse_transform(y_test_filtered)
 
 plt.figure(figsize=(10, 6))
-target = ['kp', 'ki', 'kd']  # 출력 변수
 for i, label in enumerate(target):
     plt.plot(y_test_rescaled[:, i], label=f'Actual {label}', marker='o')
     plt.plot(y_pred_rescaled[:, i], label=f'Predicted {label}', marker='x')
