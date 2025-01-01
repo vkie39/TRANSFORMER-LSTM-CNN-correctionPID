@@ -10,7 +10,7 @@ import pandas as pd
 import joblib
 
 # CSV 파일 로드 및 데이터 전처리
-data = pd.read_csv("sensorData/merged_output_2024_12_31_08_02.csv")
+data = pd.read_csv("sensorData/merged_output_2025_01_02_00_21.csv")
 data = data.replace(',', '', regex=True).astype(float)
 
 features = ['target_speed', 'cmd_vel_linear_x', 'pitch', 'mass']  # 입력 변수
@@ -26,7 +26,7 @@ target_scaler = MinMaxScaler(feature_range=(-1, 1))
 X = input_scaler.fit_transform(X)
 y = target_scaler.fit_transform(y)
 
-scaler_dir = "scalers"
+scaler_dir = "transformer_scalers"
 os.makedirs(scaler_dir, exist_ok=True)
 
 input_scaler_path = os.path.join(scaler_dir, "input_scaler.pkl")
