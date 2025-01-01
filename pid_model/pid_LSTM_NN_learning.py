@@ -37,8 +37,8 @@ data['delta_ki'] = data['ki'].diff().fillna(0)
 data['delta_kd'] = data['kd'].diff().fillna(0)
 
 # 변화량 임계값 설정
-speed_threshold = 0.01
-pid_threshold = 0.01
+speed_threshold = 0.1
+pid_threshold = 0.1
 
 # 변화량 기준 데이터 필터링
 filtered_data = data[
