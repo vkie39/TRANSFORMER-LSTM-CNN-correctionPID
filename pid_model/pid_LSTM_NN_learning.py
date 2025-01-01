@@ -90,7 +90,7 @@ X_train_filtered, X_test_filtered, y_train_filtered, y_test_filtered = train_tes
 
 # 모델 생성 및 컴파일
 model = create_model(lstm_units=64, dense_units=32, dropout_rate=0.2)
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001), loss="mse", metrics=["mae"])
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0005), loss="mse", metrics=["mae"])
 
 # RAM 및 CPU 사용량 확인 (학습 전)
 print("Before Training:")
@@ -100,7 +100,7 @@ print_cpu_usage()
 # 모델 학습
 history = model.fit(
     X_train_filtered, y_train_filtered,
-    validation_split=0.1,
+    validation_split=0.13,
     epochs=100,
     batch_size=32,
     shuffle=False

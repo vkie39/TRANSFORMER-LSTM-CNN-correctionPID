@@ -49,9 +49,9 @@ class RealTimePredictor:
             return None
 
         speed_change = calculate_speed_change(self.recent_inputs)
-        if speed_change < self.threshold:
-            print("Speed change below threshold. Skipping prediction.")
-            return None
+       # if speed_change < self.threshold:
+        #    print("Speed change below threshold. Skipping prediction.")
+         #   return None
 
         input_sequence = np.expand_dims(np.array(self.recent_inputs), axis=0)
         scaled_prediction = self.model.predict(input_sequence)
