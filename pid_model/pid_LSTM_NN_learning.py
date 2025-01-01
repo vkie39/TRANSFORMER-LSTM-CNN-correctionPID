@@ -50,6 +50,10 @@ filtered_data = data[
 
 print(f"Original Data Size: {len(data)}, Filtered Data Size: {len(filtered_data)}")
 
+# 전체 데이터에서 입력과 출력 분리
+X_full = data[features].values[:-1]
+y_full = data[target].values[1:]
+
 # 필터링된 데이터에서 입력과 출력 분리
 X_filtered = filtered_data[features].values[:-1]
 y_filtered = filtered_data[target].values[1:]
@@ -58,8 +62,11 @@ y_filtered = filtered_data[target].values[1:]
 input_scaler = MinMaxScaler(feature_range=(-1, 1))
 target_scaler = MinMaxScaler(feature_range=(-1, 1))
 
-X_filtered = input_scaler.fit_transform(X_filtered)
-y_filtered = target_scaler.fit_transform(y_filtered)
+X_full = input_scaler.fit_transform(X_full)
+y_full = target_scaler.fit_transform(y_full)
+
+X_filtered = input_scaler.transform(X_filtered)
+y_filtered = target_scaler.transform(y_filtered)
 
 scaler_dir = "LSTM_scalers"
 os.makedirs(scaler_dir, exist_ok=True)
@@ -72,8 +79,6 @@ joblib.dump(target_scaler, target_scaler_path)
 print(f"Scalers saved to {scaler_dir}")
 
 # Sliding Window를 이용한 시퀀스 데이터 생성
-seq_length = 5
-
 def create_sequences_sliding_window(X, y, seq_length):
     X_seq, y_seq = [], []
     for i in range(len(X) - seq_length + 1):
@@ -81,9 +86,20 @@ def create_sequences_sliding_window(X, y, seq_length):
         y_seq.append(y[i + seq_length - 1])
     return np.array(X_seq), np.array(y_seq)
 
+seq_length = 5
+
+# 전체 데이터 시퀀스 생성
+X_seq_full, y_seq_full = create_sequences_sliding_window(X_full, y_full, seq_length)
+
+# 필터링된 데이터 시퀀스 생성
 X_seq_filtered, y_seq_filtered = create_sequences_sliding_window(X_filtered, y_filtered, seq_length)
 
-# 훈련 데이터와 테스트 데이터 분리
+# 훈련 데이터와 테스트 데이터 분리 (전체 데이터)
+X_train_full, X_test_full, y_train_full, y_test_full = train_test_split(
+    X_seq_full, y_seq_full, test_size=0.2, shuffle=False
+)
+
+# 훈련 데이터와 테스트 데이터 분리 (필터링된 데이터)
 X_train_filtered, X_test_filtered, y_train_filtered, y_test_filtered = train_test_split(
     X_seq_filtered, y_seq_filtered, test_size=0.2, shuffle=False
 )
@@ -97,11 +113,22 @@ print("Before Training:")
 print_ram_usage()
 print_cpu_usage()
 
-# 모델 학습
-history = model.fit(
+# 전체 데이터로 초기 학습
+print("Training on full dataset...")
+history_full = model.fit(
+    X_train_full, y_train_full,
+    validation_split=0.1,
+    epochs=50,
+    batch_size=32,
+    shuffle=False
+)
+
+# 필터링된 데이터로 추가 학습
+print("Fine-tuning on filtered dataset...")
+history_filtered = model.fit(
     X_train_filtered, y_train_filtered,
-    validation_split=0.13,
-    epochs=100,
+    validation_split=0.1,
+    epochs=50,
     batch_size=32,
     shuffle=False
 )
@@ -118,10 +145,17 @@ print("After Training:")
 print_ram_usage()
 print_cpu_usage()
 
-# 모델 평가
-loss, mae = model.evaluate(X_test_filtered, y_test_filtered)
-print(f"Test Loss (MSE): {loss}")
-print(f"Test MAE: {mae}")
+# 모델 평가 (전체 데이터)
+print("Evaluating on full dataset...")
+loss_full, mae_full = model.evaluate(X_test_full, y_test_full)
+print(f"Test Loss (MSE) on Full Dataset: {loss_full}")
+print(f"Test MAE on Full Dataset: {mae_full}")
+
+# 모델 평가 (필터링된 데이터)
+print("Evaluating on filtered dataset...")
+loss_filtered, mae_filtered = model.evaluate(X_test_filtered, y_test_filtered)
+print(f"Test Loss (MSE) on Filtered Dataset: {loss_filtered}")
+print(f"Test MAE on Filtered Dataset: {mae_filtered}")
 
 # 예측값 복원 및 비교 시각화
 y_pred = model.predict(X_test_filtered)
