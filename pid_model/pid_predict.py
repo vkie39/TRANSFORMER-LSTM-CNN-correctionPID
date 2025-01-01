@@ -12,7 +12,7 @@ model = tf.keras.models.load_model(model_save_path)
 #input_scaler = MinMaxScaler(feature_range=(-1, 1))  # 입력 데이터 범위에 맞게 초기화
 #target_scaler = MinMaxScaler(feature_range=(-1, 1))  # 출력 데이터 범위에 맞게 초기화
 
-scaler_dir = "scalers"
+scaler_dir = "transformer_scalers"
 input_scaler_path = os.path.join(scaler_dir, "input_scaler.pkl")
 target_scaler_path = os.path.join(scaler_dir, "target_scaler.pkl")
 
@@ -60,7 +60,7 @@ class RealTimePredictor:
         """
         #self.input_scaler.fit([raw_input])
         scaled_input = self.input_scaler.transform([raw_input])
-        print(f"Scaled Input: scaled_input")
+        print(f"Scaled Input: {scaled_input}")
         return scaled_input.flatten() # 1D 배열로 반환 (저장 및 처리를 간편하게 하기 위함)
 
     def update_recent_inputs(self, input_features):
@@ -135,7 +135,7 @@ class RealTimePredictor:
         print(f"2. input sequence: {input_sequence}")
         
         scaled_prediction = self.model.predict(input_sequence)
-        print(f"Predicted Target (kp, ki, kd): {scaled_prediction}")
+        print(f"1. Predicted Target (kp, ki, kd): {scaled_prediction}")
         
         prediction = self.target_scaler.inverse_transform(scaled_prediction).flatten()
         
@@ -179,7 +179,7 @@ class RealTimePredictor:
                 # 타겟 예측
                 predicted_target = self.predict_target()
                 if predicted_target is not None:
-                    print(f"Predicted Target (kp, ki, kd): {predicted_target}")
+                    print(f"2. Predicted Target (kp, ki, kd): {predicted_target}")
 
                     # 예측 검증
                     # 이전 예측값들과 비교 (가장 최근 예측을 제외한 4래 예측값들과의 차이 계산)
