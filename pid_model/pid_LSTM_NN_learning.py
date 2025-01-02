@@ -23,7 +23,7 @@ def print_cpu_usage():
     print(f"CPU Usage: {cpu_percent:.2f}%")
 
 # CSV 파일 로드
-data = pd.read_csv("sensorData/merged_output_2024_12_31_08_02.csv")
+data = pd.read_csv("sensorData/merged_output_2025_01_02_23_07.csv")
 data = data.replace(',', '', regex=True).astype(float)  # 쉼표 제거 및 숫자 변환
 
 # 입력과 출력 변수 분리
