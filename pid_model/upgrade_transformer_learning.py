@@ -120,7 +120,7 @@ output_dim = y_train.shape[1]
 model = create_model(input_dim=input_dim, output_dim=output_dim, seq_length=seq_length)
 
 # 모델 컴파일
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.0005),#1e-3
               loss="mse",
               metrics=["mae"])
 
@@ -141,13 +141,12 @@ history = model.fit(X_train, y_train,
 
 # 필터링된 데이터로 추가 학습
 print("Fine-tuning on filtered dataset...")
-history_filtered = model.fit(
-    X_train_filtered, y_train_filtered,
-    validation_split=0.1,
-    epochs=50,
-    batch_size=32,
-    shuffle=False,
-    callbacks=[reduce_lr]
+history_filtered = model.fit(X_train_filtered, y_train_filtered,
+                    validation_split=0.1,
+                    epochs=50,
+                    batch_size=32,
+                    shuffle=False,
+                    callbacks=[reduce_lr]
 )
 
 # 모델 경로 생성
