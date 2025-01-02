@@ -47,11 +47,10 @@ class TransformerBlock(layers.Layer):
         return cls(**config)
 
 
-# Transformer + CNN 결합 모델 정의
-class CNNSelfAttentionModel(tf.keras.Model):
-    def __init__(self, seq_length, d_model, num_heads, ff_dim, cnn_filters, output_dim):
-        super(CNNSelfAttentionModel, self).__init__()
-        self.conv1d = layers.Conv1D(filters=cnn_filters, kernel_size=3, activation="tanh", padding="same")
+# Transformer 기반 모델 정의
+class TransformerOnlyModel(tf.keras.Model):
+    def __init__(self, seq_length, d_model, num_heads, ff_dim, output_dim):
+        super(TransformerOnlyModel, self).__init__()
         self.transformer = TransformerBlock(d_model, num_heads, ff_dim)
         self.global_pool = layers.GlobalAveragePooling1D()
         self.fc = layers.Dense(output_dim, activation="tanh")
@@ -61,12 +60,10 @@ class CNNSelfAttentionModel(tf.keras.Model):
         self.d_model = d_model
         self.num_heads = num_heads
         self.ff_dim = ff_dim
-        self.cnn_filters = cnn_filters
         self.output_dim = output_dim
 
     def call(self, inputs, training=False):
-        x = self.conv1d(inputs)
-        x = self.transformer(x, training=training)
+        x = self.transformer(inputs, training=training)
         x = self.global_pool(x)
         return self.fc(x)
 
@@ -77,7 +74,6 @@ class CNNSelfAttentionModel(tf.keras.Model):
             'd_model': self.d_model,
             'num_heads': self.num_heads,
             'ff_dim': self.ff_dim,
-            'cnn_filters': self.cnn_filters,
             'output_dim': self.output_dim,
         }
         return config
@@ -85,7 +81,7 @@ class CNNSelfAttentionModel(tf.keras.Model):
     @classmethod
     def from_config(cls, config):
         return cls(**config)
-    
+
 # 모델 생성 함수
 def create_model(input_dim, output_dim, seq_length):
-    return CNNSelfAttentionModel(seq_length=seq_length, d_model=32, num_heads=4, ff_dim=128, cnn_filters=32, output_dim=output_dim)
+    return TransformerOnlyModel(seq_length=seq_length, d_model=32, num_heads=4, ff_dim=128, output_dim=output_dim)

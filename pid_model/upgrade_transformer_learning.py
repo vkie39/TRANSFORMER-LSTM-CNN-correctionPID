@@ -10,7 +10,7 @@ import pandas as pd
 import joblib
 
 # CSV 파일 로드 및 데이터 전처리
-data = pd.read_csv("sensorData/merged_output_2025_01_02_14_0.csv")
+data = pd.read_csv("sensorData/merged_output_2024_12_31_08_02.csv")
 data = data.replace(',', '', regex=True).astype(float)
 
 features = ['target_speed', 'cmd_vel_linear_x', 'pitch', 'mass']  # 입력 변수
@@ -24,7 +24,7 @@ data['delta_kd'] = data['kd'].diff().fillna(0)
 
 # 변화량 임계값 설정
 speed_threshold = 0.1
-pid_threshold = 0.1
+pid_threshold = 0.05
 
 # 변화량 기준 데이터 필터링 (변화가 있는 부분에 대한 추가학습을 하기 위함함)
 filtered_data = data[
