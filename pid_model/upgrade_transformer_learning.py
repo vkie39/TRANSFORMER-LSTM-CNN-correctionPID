@@ -143,7 +143,7 @@ history = model.fit(X_train, y_train,
 print("Fine-tuning on filtered dataset...")
 history_filtered = model.fit(X_train_filtered, y_train_filtered,
                     validation_split=0.1,
-                    epochs=50,
+                    epochs=150,
                     batch_size=32,
                     shuffle=False,
                     callbacks=[reduce_lr]
