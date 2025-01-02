@@ -10,7 +10,7 @@ import pandas as pd
 import joblib
 
 # CSV 파일 로드 및 데이터 전처리
-data = pd.read_csv("sensorData/merged_output_2025_01_02_11_09.csv")
+data = pd.read_csv("sensorData/merged_output_2024_12_31_08_02.csv")
 data = data.replace(',', '', regex=True).astype(float)
 
 features = ['target_speed', 'cmd_vel_linear_x', 'pitch', 'mass']  # 입력 변수
@@ -45,23 +45,42 @@ y_filtered = filtered_data[target].values[1:]
 
 # 스케일링
 input_scaler = MinMaxScaler(feature_range=(-1, 1))
-target_scaler = MinMaxScaler(feature_range=(-1, 1))
+kp_scaler = MinMaxScaler(feature_range=(-1, 1))
+ki_scaler = MinMaxScaler(feature_range=(-1, 1))
+kd_scaler = MinMaxScaler(feature_range=(-1, 1))
 
 X = input_scaler.fit_transform(X)
-y = target_scaler.fit_transform(y)
+y_kp = kp_scaler.fit_transform(y[:, 0].reshape(-1, 1))
+y_ki = ki_scaler.fit_transform(y[:, 1].reshape(-1, 1))
+y_kd = kd_scaler.fit_transform(y[:, 2].reshape(-1, 1))
 
+# y를 다시 합치기
+y = np.hstack((y_kp, y_ki, y_kd))
+
+# 필터링된 데이터 스케일링
 X_filtered = input_scaler.transform(X_filtered)
-y_filtered = target_scaler.transform(y_filtered)
+y_filtered_kp = kp_scaler.transform(y_filtered[:, 0].reshape(-1, 1))
+y_filtered_ki = ki_scaler.transform(y_filtered[:, 1].reshape(-1, 1))
+y_filtered_kd = kd_scaler.transform(y_filtered[:, 2].reshape(-1, 1))
 
+y_filtered = np.hstack((y_filtered_kp, y_filtered_ki, y_filtered_kd))
+
+
+# 스케일러 저장
 scaler_dir = "transformer_scalers"
 os.makedirs(scaler_dir, exist_ok=True)
 
 input_scaler_path = os.path.join(scaler_dir, "input_scaler.pkl")
-target_scaler_path = os.path.join(scaler_dir, "target_scaler.pkl")
+kp_scaler_path = os.path.join(scaler_dir, "kp_scaler.pkl")
+ki_scaler_path = os.path.join(scaler_dir, "ki_scaler.pkl")
+kd_scaler_path = os.path.join(scaler_dir, "kd_scaler.pkl")
 
 joblib.dump(input_scaler, input_scaler_path)
-joblib.dump(target_scaler, target_scaler_path)
+joblib.dump(kp_scaler, kp_scaler_path)
+joblib.dump(ki_scaler, ki_scaler_path)
+joblib.dump(kd_scaler, kd_scaler_path)
 print(f"Scalers saved to {scaler_dir}")
+
 
 
 seq_length = 5  # 시퀀스 길이
@@ -151,10 +170,20 @@ print(f"Test Loss (MSE) on Filtered Dataset: {loss_filtered}")
 print(f"Test MAE on Filtered Dataset: {mae_filtered}")
 
 
-# 예측값 생성 및 시각화
+# 예측값 생성 및 역스케일링
 y_pred = model.predict(X_test)
-y_pred_rescaled = target_scaler.inverse_transform(y_pred)
-y_test_rescaled = target_scaler.inverse_transform(y_test)
+y_pred_kp = kp_scaler.inverse_transform(y_pred[:, 0].reshape(-1, 1))
+y_pred_ki = ki_scaler.inverse_transform(y_pred[:, 1].reshape(-1, 1))
+y_pred_kd = kd_scaler.inverse_transform(y_pred[:, 2].reshape(-1, 1))
+
+y_pred_rescaled = np.hstack((y_pred_kp, y_pred_ki, y_pred_kd))
+
+# 실제값 역스케일링
+y_test_kp = kp_scaler.inverse_transform(y_test[:, 0].reshape(-1, 1))
+y_test_ki = ki_scaler.inverse_transform(y_test[:, 1].reshape(-1, 1))
+y_test_kd = kd_scaler.inverse_transform(y_test[:, 2].reshape(-1, 1))
+
+y_test_rescaled = np.hstack((y_test_kp, y_test_ki, y_test_kd))
 
 # 다중 출력 시각화
 plt.figure(figsize=(10, 6))
